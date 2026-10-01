@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Blackjack Advisor</title>
+<style>
+:root{
+  --felt:#13233A; --panel:#1C3150; --line:#2B4468;
+  --card:#F7F5EF; --ink:#1A1A1A; --red:#C8102E; --gold:#E3A82B;
+  --muted:#93A3BA; --go:#3FB27F; --wait:#E3A82B; --stop:#E0566A;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--felt);color:#EDF1F7;font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;font-size:15px}
+.wrap{max-width:480px;margin:0 auto;padding:12px 12px 32px}
+button{font:inherit;color:inherit;border:none;cursor:pointer}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* count strip */
+.counts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--panel);border-radius:10px;padding:8px 10px}
+.stat b{display:block;font-size:24px;font-family:Georgia,serif;font-weight:600}
+.stat span{color:var(--muted);font-size:12px}
+
+/* join banner */
+.join{margin-top:10px;border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;border:2px solid}
+.join.go{border-color:var(--go);background:rgba(63,178,127,.12)}
+.join.wait{border-color:var(--wait);background:rgba(227,168,43,.10)}
+.join.stop{border-color:var(--stop);background:rgba(224,86,106,.12)}
+.join h2{margin:0;font-size:18px}
+.join p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.join .bet{text-align:right;font-family:Georgia,serif;font-size:20px;white-space:nowrap}
+.join .bet small{display:block;font-family:inherit;font-size:11px;color:var(--muted)}
+
+/* advice — the memorable element: a big playing card */
+.advice{margin-top:12px;display:flex;gap:12px;align-items:stretch}
+.bigcard{flex:0 0 132px;aspect-ratio:5/7;background:var(--card);color:var(--ink);border-radius:12px;position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:transform .18s}
+.bigcard.flash{transform:rotate(-3deg) scale(1.03)}
+.bigcard .corner{position:absolute;top:8px;left:10px;font-family:Georgia,serif;font-size:18px;font-weight:700;line-height:1}
+.bigcard .corner.br{top:auto;left:auto;bottom:8px;right:10px;transform:rotate(180deg)}
+.bigcard .move{font-family:Georgia,serif;font-size:26px;font-weight:700;text-align:center;padding:0 6px;line-height:1.1}
+.bigcard .sub{font-size:11px;color:#555;margin-top:6px;text-align:center;padding:0 8px}
+.bigcard.red .move,.bigcard.red .corner{color:var(--red)}
+.bigcard.idle .move{font-size:15px;font-family:inherit;font-weight:500;color:#555}
+.why{flex:1;background:var(--panel);border-radius:12px;padding:10px 12px;font-size:13px;color:var(--muted);line-height:1.45}
+.why strong{color:#EDF1F7;font-weight:600}
+.why .ins{margin-top:8px;color:var(--gold)}
+
+/* hands */
+.hands{margin-top:12px;display:grid;gap:6px}
+.hand{display:flex;align-items:center;gap:8px;background:var(--panel);border-radius:10px;padding:8px 10px;border:2px solid transparent;text-align:left;width:100%;min-height:52px}
+.hand.active{border-color:var(--gold)}
+.hand .who{width:58px;font-weight:600;font-size:14px}
+.hand .who small{display:block;color:var(--muted);font-weight:400;font-size:11px}
+.chips{display:flex;flex-wrap:wrap;gap:4px;flex:1}
+.chip{background:var(--card);color:var(--ink);border-radius:4px;padding:3px 6px;font-family:Georgia,serif;font-weight:700;font-size:14px;min-width:26px;text-align:center}
+.chip.plus{color:var(--red)} .chip.zero{color:#666}
+.hand .tot{color:var(--muted);font-size:13px;white-space:nowrap}
+
+/* keypad */
+.pad{margin-top:12px;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.key{background:var(--card);color:var(--ink);border-radius:10px;height:62px;font-family:Georgia,serif;font-size:24px;font-weight:700;position:relative}
+.key:active{transform:scale(.95)}
+.key small{position:absolute;bottom:4px;right:6px;font-family:system-ui;font-size:10px;font-weight:600}
+.key small.p{color:var(--go)} .key small.m{color:var(--red)} .key small.z{color:#888}
+.pad.quick{grid-template-columns:repeat(3,1fr)}
+.pad.quick .key{height:96px;font-size:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.pad.quick .key .q{font-family:system-ui;font-size:15px;font-weight:700}
+.pad.quick .key.lo .q{color:var(--go)} .pad.quick .key.hi .q{color:var(--red)} .pad.quick .key.mid .q{color:#777}
+.say{margin-top:12px;display:flex;gap:8px}
+.say input{flex:1;min-width:0;background:var(--panel);color:#EDF1F7;border:1.5px solid var(--line);border-radius:10px;padding:12px;font:inherit;font-size:16px}
+.say input:focus{outline:none;border-color:var(--gold)}
+.say button{border-radius:10px;padding:0 14px;font-weight:600;background:var(--gold);color:var(--ink)}
+.say button.mic{background:var(--line);color:#EDF1F7}
+.say button.mic.on{background:var(--stop);color:#fff}
+.heard{margin:6px 2px 0;font-size:13px;color:#EDF1F7;min-height:18px}
+.heard .bad{color:var(--stop)}
+.hint{color:var(--muted);font-size:12px;margin:6px 2px 0}
+
+.actions{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ctx{display:flex;gap:8px;margin-top:10px}
+.ctx button{flex:1;border-radius:10px;padding:12px 4px;font-weight:600;font-size:14px;background:var(--line)}
+.ctx button.hot{background:var(--gold);color:var(--ink)}
+.ctx button[hidden]{display:none}
+.grp{display:inline-flex;gap:3px;padding:2px 4px;border-radius:6px;border:1.5px dashed transparent}
+.grp.on{border-color:var(--gold)}
+.grp.done{opacity:.5}
+.act{background:var(--line);border-radius:10px;padding:12px 4px;font-size:13px;font-weight:600}
+.act.shuffle{background:transparent;border:1.5px solid var(--stop);color:var(--stop)}
+
+details{margin-top:16px;background:var(--panel);border-radius:12px;padding:4px 12px}
+summary{padding:10px 0;font-weight:600;cursor:pointer}
+.row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--line);gap:10px}
+.row label{flex:1}
+.row label small{display:block;color:var(--muted);font-size:12px}
+select,input[type=number]{background:var(--felt);color:#EDF1F7;border:1px solid var(--line);border-radius:6px;padding:6px;font:inherit;width:72px}
+input[type=checkbox]{width:22px;height:22px;accent-color:var(--gold)}
+@media (prefers-reduced-motion:reduce){.bigcard{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="counts">
+    <div class="stat"><span>Running count</span><b id="rc">0</b></div>
+    <div class="stat"><span>True count</span><b id="tc">0.0</b></div>
+    <div class="stat"><span>Decks left</span><b id="dl">6.0</b></div>
+  </div>
+
+  <div class="join wait" id="join">
+    <div><h2 id="joinTitle">Your call</h2><p id="joinNote">Count is neutral.</p></div>
+    <div class="bet" id="joinBet">1 unit<small>est. edge −0.5%</small></div>
+  </div>
+
+  <div class="advice">
+    <div class="bigcard idle" id="bigcard">
+      <div class="corner" id="c1"></div>
+      <div class="move" id="move">Tap the dealer's upcard</div>
+      <div class="sub" id="moveSub"></div>
+      <div class="corner br" id="c2"></div>
+    </div>
+    <div class="why" id="why">Pick who received the card below, then tap its rank. Every card you enter updates the count.</div>
+  </div>
+
+  <div class="ctx">
+    <button id="splitBtn" hidden>Split this pair</button>
+    <button id="doneBtn" hidden>Done with this hand</button>
+  </div>
+
+  <div class="hands">
+    <button class="hand" data-t="dealer"><div class="who">Dealer<small>1st = upcard</small></div><div class="chips" id="h-dealer"></div><div class="tot" id="t-dealer"></div></button>
+    <button class="hand active" data-t="me"><div class="who">Me<small>your hand</small></div><div class="chips" id="h-me"></div><div class="tot" id="t-me"></div></button>
+    <button class="hand" data-t="table"><div class="who">Table<small>others</small></div><div class="chips" id="h-table"></div><div class="tot" id="t-table"></div></button>
+  </div>
+
+  <div class="say">
+    <input id="sayBox" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="Say or type: dealer 10, me 8 8, table 5 10" aria-label="Enter cards by voice or text">
+    <button id="sayGo">Add</button>
+    <button id="micBtn" class="mic" hidden>Listen</button>
+  </div>
+  <p class="heard" id="heard"></p>
+
+  <div class="pad" id="pad"></div>
+  <p class="hint" id="padHint">10 covers 10, J, Q, and K. The small number shows each card's Hi-Lo value.</p>
+
+  <div class="actions">
+    <button class="act" id="undo">Undo</button>
+    <button class="act" id="next">Next hand</button>
+    <button class="act shuffle" id="shuffle">Shuffle</button>
+  </div>
+  <p class="hint">When you have a pair, a Split button appears. Split hands are played one at a time; the gold outline shows which hand your taps go to. After doubling on a split hand, tap Done.</p>
+
+  <details>
+    <summary>House rules and settings</summary>
+    <div class="row"><label>Decks in the shoe</label>
+      <select id="decks"><option>1</option><option>2</option><option>4</option><option selected>6</option><option>8</option></select></div>
+    <div class="row"><label>Dealer hits soft 17<small>Common in home games</small></label><input type="checkbox" id="h17" checked></div>
+    <div class="row"><label>Double after split allowed</label><input type="checkbox" id="das" checked></div>
+    <div class="row"><label>Surrender allowed<small>Give up half your bet</small></label><input type="checkbox" id="sur"></div>
+    <div class="row"><label>Quick entry for other players<small>Three buttons (low, middle, high) instead of exact cards</small></label><input type="checkbox" id="quick" checked></div>
+    <div class="row"><label>Use count-based plays<small>Adjusts close decisions by true count</small></label><input type="checkbox" id="dev" checked></div>
+    <div class="row"><label>Join at true count of<small>Or higher</small></label><input type="number" id="joinAt" value="1" step="0.5"></div>
+    <div class="row"><label>Sit out at true count of<small>Or lower</small></label><input type="number" id="sitAt" value="-1" step="0.5"></div>
+    <div class="row"><label>Max bet (units)</label><input type="number" id="maxU" value="8" min="1"></div>
+  </details>
+</div>
+
+<script>
+const RANKS=['A','2','3','4','5','6','7','8','9','10'];
+const hilo=r=>r==='L'?1:r==='M'?0:r==='X'?-1:['2','3','4','5','6'].includes(r)?1:(r==='10'||r==='A')?-1:0;
+const val=r=>r==='A'?11:+r;
+const newHand=()=>({cards:[],split:false,aces:false});
+const fresh=()=>({target:'dealer',hands:{dealer:[],table:[]},mine:[newHand()],act:0,seen:0,rc:0,log:[],uid:0});
+let state=fresh();
+const $=id=>document.getElementById(id);
+const R=()=>({decks:+$('decks').value,h17:$('h17').checked,das:$('das').checked,sur:$('sur').checked,
+  dev:$('dev').checked,joinAt:+$('joinAt').value,sitAt:+$('sitAt').value,maxU:Math.max(1,+$('maxU').value||1)});
+
+function info(cards){let t=0,a=0;cards.forEach(c=>{t+=val(c.r);if(c.r==='A')a++});
+  while(t>21&&a){t-=10;a--}
+  return{total:t,soft:a>0,n:cards.length,pair:cards.length===2&&cards[0].r===cards[1].r,bj:cards.length===2&&t===21}}
+
+function basic(cards,up,r,noPair){
+  const h=info(cards),two=h.n===2,t=h.total;
+  if(h.pair&&!noPair){const p=val(cards[0].r);let s=false;
+    switch(p){case 11:case 8:s=true;break;
+      case 9:s=[2,3,4,5,6,8,9].includes(up);break;
+      case 7:s=up<=7;break;
+      case 6:s=r.das?up<=6:(up>=3&&up<=6);break;
+      case 4:s=r.das&&(up===5||up===6);break;
+      case 3:case 2:s=r.das?up<=7:(up>=4&&up<=7);break;}
+    if(s)return'P';}
+  if(r.sur&&two&&!h.soft){
+    if(t===16&&[9,10,11].includes(up))return'R';
+    if(t===15&&(up===10||(r.h17&&up===11)))return'R';
+    if(r.h17&&t===17&&up===11)return'R';}
+  if(h.soft){
+    if(t>=20)return'S';
+    if(t===19)return(r.h17&&up===6)?'Ds':'S';
+    if(t===18){if(up<=6)return(up===2&&!r.h17)?'S':'Ds';if(up<=8)return'S';return'H'}
+    if(t===17)return(up>=3&&up<=6)?'D':'H';
+    if(t>=15)return(up>=4&&up<=6)?'D':'H';
+    if(t>=13)return(up>=5&&up<=6)?'D':'H';
+    return'H';}
+  if(t>=17)return'S';
+  if(t>=13)return up<=6?'S':'H';
+  if(t===12)return(up>=4&&up<=6)?'S':'H';
+  if(t===11)return(up===11&&!r.h17)?'H':'D';
+  if(t===10)return up<=9?'D':'H';
+  if(t===9)return(up>=3&&up<=6)?'D':'H';
+  return'H';
+}
+
+// Hi-Lo index plays (Illustrious 18 subset). [total, upcard, index, action, direction]
+const DEV=[[16,10,0,'S','ge'],[15,10,4,'S','ge'],[16,9,5,'S','ge'],[12,3,2,'S','ge'],[12,2,3,'S','ge'],
+  [12,4,0,'H','lt'],[12,5,-2,'H','lt'],[12,6,-1,'H','lt'],[13,2,-1,'H','lt'],[13,3,-2,'H','lt'],
+  [10,10,4,'D','ge'],[10,11,4,'D','ge'],[11,11,1,'D','ge'],[9,2,1,'D','ge'],[9,7,3,'D','ge']];
+function deviate(cards,up,tc,base){
+  const h=info(cards);
+  if(h.pair&&cards[0].r==='10'){
+    if(up===5&&tc>=5)return{a:'P',why:'split 10s at true count +5 or higher against a 5'};
+    if(up===6&&tc>=4)return{a:'P',why:'split 10s at true count +4 or higher against a 6'};}
+  if(h.soft||base==='P'||base==='R')return null;
+  for(const[t,u,i,a,d]of DEV){
+    if(h.total!==t||up!==u)continue;
+    if(a==='D'&&h.n!==2)continue;
+    const hit=d==='ge'?tc>=i:tc<i;
+    if(hit&&a!==base.replace('s',''))return{a,why:`${a==='S'?'stand':a==='H'?'hit':'double'} on ${t} vs ${u===11?'A':u} when true count is ${d==='ge'?'at least':'below'} ${i>0?'+'+i:i}`};}
+  return null;
+}
+
+const NAMES={H:'Hit',S:'Stand',D:'Double',Ds:'Double',P:'Split',R:'Surrender'};
+function deckLeft(){return Math.max(.5,(R().decks*52-state.seen)/52)}
+function tcNow(){return state.rc/deckLeft()}
+
+function cur(){return state.mine[state.act]}
+function finished(h){const i=info(h.cards);return i.total>=21||(h.aces&&h.cards.length===2)}
+function add(rank,noAuto){
+  const c={r:rank,id:++state.uid},e={type:'card',t:state.target,c,prevAct:state.act,prevTarget:state.target};
+  if(state.target==='me'){
+    if(state.act>=state.mine.length)return false; // all your hands are finished
+    const h=cur();h.cards.push(c);e.hand=h;
+    if(state.mine.length>1&&finished(h))state.act++;
+  }else state.hands[state.target].push(c);
+  state.rc+=hilo(rank);state.seen++;state.log.push(e);
+  if(!noAuto&&state.target==='dealer'&&state.hands.dealer.length===1&&state.mine[0].cards.length<2)state.target='me';
+  render(true);return true;
+}
+function canSplit(h){return h&&h.cards.length===2&&h.cards[0].r===h.cards[1].r&&state.mine.length<4&&!(h.aces)}
+function doSplit(){
+  const h=cur();if(!canSplit(h))return false;
+  const[a,b]=h.cards,e={type:'split',h,a,b,prevAct:state.act,prevSplit:h.split,prevAces:h.aces};
+  h.cards=[a];h.split=true;h.aces=a.r==='A';
+  const nh={cards:[b],split:true,aces:a.r==='A'};e.nh=nh;
+  state.mine.splice(state.act+1,0,nh);state.target='me';state.log.push(e);render(true);return true;
+}
+function doDone(){if(state.act>=state.mine.length)return false;state.log.push({type:'done',prevAct:state.act});state.act++;render(true);return true}
+function undo(){const e=state.log.pop();if(!e)return;
+  if(e.type==='card'){
+    state.rc-=hilo(e.c.r);state.seen--;
+    const arr=e.t==='me'?e.hand.cards:state.hands[e.t],i=arr.findIndex(x=>x.id===e.c.id);if(i>-1)arr.splice(i,1);
+    state.act=e.prevAct;state.target=e.prevTarget;
+  }else if(e.type==='split'){
+    state.mine.splice(state.mine.indexOf(e.nh),1);e.h.cards=[e.a,e.b];e.h.split=e.prevSplit;e.h.aces=e.prevAces;state.act=e.prevAct;
+  }else if(e.type==='next'){
+    // bring the previous round back on screen; the count never changed, so leave it alone
+    state.hands=e.hands;state.mine=e.mine;state.act=e.act;state.target=e.target;
+  }else state.act=e.prevAct;
+  render(true)}
+
+function render(flash){
+  renderPad();
+  const r=R(),dl=deckLeft(),tc=tcNow();
+  $('rc').textContent=(state.rc>0?'+':'')+state.rc;
+  $('tc').textContent=(tc>0?'+':'')+tc.toFixed(1);
+  $('dl').textContent=dl.toFixed(1);
+
+  // join / sit out
+  const j=$('join'),edge=(tc*0.5-0.5);
+  let cls,title,note,units;
+  if(tc>=r.joinAt){cls='go';title='Join this round';units=Math.min(r.maxU,Math.max(1,Math.floor(tc)));note='More high cards left than usual. Favors you.'}
+  else if(tc<=r.sitAt){cls='stop';title='Sit this one out';units=0;note='Mostly low cards left. Favors the dealer.'}
+  else{cls='wait';title='Your call';units=1;note='Count is neutral. Play minimum if you join.'}
+  j.className='join '+cls;$('joinTitle').textContent=title;$('joinNote').textContent=note;
+  $('joinBet').innerHTML=(units?units+(units>1?' units':' unit'):'No bet')+`<small>est. edge ${edge>=0?'+':'−'}${Math.abs(edge).toFixed(1)}%</small>`;
+
+  // hands
+  const chip=c=>{const v=hilo(c.r);return`<span class="chip ${v>0?'plus':v===0?'zero':''}">${c.r}</span>`};
+  const tot=cards=>{const h=info(cards);return h.n?(h.soft&&h.total<21?'soft ':'')+h.total:''};
+  $('h-dealer').innerHTML=state.hands.dealer.map(chip).join('');$('t-dealer').textContent=tot(state.hands.dealer);
+  const tb=state.hands.table,tq=tb.filter(c=>'LMX'.includes(c.r));
+  if(tq.length){const n=k=>tb.filter(c=>hilo(c.r)===k).length;
+    $('h-table').innerHTML=`<span class="chip plus">${n(1)} low</span><span class="chip zero">${n(0)} mid</span><span class="chip">${n(-1)} high</span>`;}
+  else $('h-table').innerHTML=tb.map(chip).join('');
+  $('t-table').textContent=tb.length?tb.length+(tb.length>1?' cards':' card'):'';
+  const multi=state.mine.length>1;
+  $('h-me').innerHTML=multi?state.mine.map((h,i)=>`<span class="grp ${i===state.act?'on':''} ${i<state.act?'done':''}">${h.cards.map(chip).join('')||'<span class="chip zero">?</span>'}</span>`).join(''):state.mine[0].cards.map(chip).join('');
+  $('t-me').textContent=multi?(state.act<state.mine.length?`hand ${state.act+1} of ${state.mine.length}`:'all done'):tot(state.mine[0].cards);
+  ['dealer','me','table'].forEach(k=>document.querySelector(`.hand[data-t=${k}]`).classList.toggle('active',state.target===k));
+
+  // advice
+  const bc=$('bigcard'),dU=state.hands.dealer[0],allDone=state.act>=state.mine.length,hand=allDone?null:cur(),me=hand?hand.cards:[];
+  const multi2=state.mine.length>1,label=multi2&&hand?`Hand ${state.act+1}: `:'';
+  let move='',sub='',why='',idle=true,red=false,ins='',a=null;
+  const prevNote=multi2&&state.act>0&&state.act<=state.mine.length?`Hand ${state.act} finished at ${info(state.mine[state.act-1].cards).total}. `:'';
+  if(!dU){move="Tap the dealer's upcard";why='Select <strong>Dealer</strong>, then tap the card showing.'}
+  else if(allDone){move='All hands played';why=state.mine.map((h,i)=>`Hand ${i+1}: <strong>${info(h.cards).total}</strong>`).join(', ')+'. Enter the dealer\'s cards, then tap Next hand.'}
+  else if(me.length<2){move=hand.split?'Add next card':'Add your cards';why=prevNote+(hand.split?`${label}tap the card dealt to this hand.`:'Select <strong>Me</strong> and tap your two cards.')}
+  else{
+    const h=info(me),up=val(dU.r),two=h.n===2,canD=two&&(!hand.split||r.das),noPair=!canSplit(hand);idle=false;
+    if(h.bj&&!hand.split){move='Blackjack';sub='Nothing to decide';why='<strong>Natural 21.</strong> Collect 3 to 2 unless the dealer also has blackjack.'}
+    else if(h.total>21){move='Bust';red=true;why=`You have <strong>${h.total}</strong>. Tap Next hand when the round ends.`}
+    else{
+      a=basic(me,up,{...r,sur:r.sur&&!hand.split},noPair);
+      if(!canD&&a==='D')a='H';if(!canD&&a==='Ds')a='S';
+      let dv=r.dev?deviate(me,up,tc,a):null;
+      if(dv&&((dv.a==='D'&&!canD)||(dv.a==='P'&&noPair)))dv=null;
+      if(dv)a=dv.a;
+      move=NAMES[a];red=(a==='R');
+      if(a==='D')sub='If doubling isn\'t allowed, hit';
+      if(a==='Ds')sub='If doubling isn\'t allowed, stand';
+      why=prevNote+`${label}<strong>${h.soft?'soft ':''}${h.total}</strong> against a dealer <strong>${dU.r}</strong>. `+
+        (dv?`Count play: ${dv.why}.`:'Standard basic strategy for these rules.')+(hand.split&&a&&a.startsWith('D')?' After your one double card, tap Done.':'');
+    }
+    if(dU.r==='A'&&!hand.split&&me.length===2&&state.mine.length===1)ins=tc>=3?'Insurance: take it (true count is +3 or higher).':'Insurance: decline.';
+  }
+  const sb=$('splitBtn'),db=$('doneBtn');
+  sb.hidden=!(dU&&canSplit(hand));sb.classList.toggle('hot',a==='P');
+  db.hidden=!(multi2&&!allDone&&me.length>=2);
+  bc.className='bigcard'+(idle?' idle':'')+(red?' red':'');
+  $('move').textContent=move;$('moveSub').textContent=sub;
+  $('c1').textContent=$('c2').textContent=idle?'':(dU?dU.r:'');
+  $('why').innerHTML=why+(ins?`<div class="ins">${ins}</div>`:'');
+  if(flash&&!idle){bc.classList.add('flash');setTimeout(()=>bc.classList.remove('flash'),180)}
+}
+
+let padMode='';
+function renderPad(){
+  const quick=state.target==='table'&&$('quick').checked,mode=quick?'quick':'full';
+  if(mode===padMode)return;padMode=mode;const pad=$('pad');pad.classList.toggle('quick',quick);
+  if(quick){pad.innerHTML=`<button class="key lo" data-r="L">2–6<span class="q">+1</span></button><button class="key mid" data-r="M">7–9<span class="q">0</span></button><button class="key hi" data-r="X">10–A<span class="q">−1</span></button>`;
+    $('padHint').textContent="Quick entry: for other players you only need low, middle, or high. Tap once per card.";}
+  else{pad.innerHTML=RANKS.map(r=>{const v=hilo(r);return`<button class="key" data-r="${r}">${r}<small class="${v>0?'p':v<0?'m':'z'}">${v>0?'+1':v<0?'−1':'0'}</small></button>`}).join('');
+    $('padHint').textContent="10 covers 10, J, Q, and K. The small number shows each card's Hi-Lo value.";}
+}
+$('pad').addEventListener('click',e=>{const b=e.target.closest('.key');if(b)add(b.dataset.r)});
+document.querySelectorAll('.hand').forEach(b=>b.addEventListener('click',()=>{state.target=b.dataset.t;render()}));
+$('undo').onclick=undo;
+$('splitBtn').onclick=doSplit;$('doneBtn').onclick=doDone;
+function nextHand(){
+  const empty=!state.hands.dealer.length&&!state.hands.table.length&&state.mine.length===1&&!state.mine[0].cards.length;
+  if(!empty)state.log.push({type:'next',hands:state.hands,mine:state.mine,act:state.act,target:state.target});
+  state.hands={dealer:[],table:[]};state.mine=[newHand()];state.act=0;state.target='dealer';render()}
+$('next').onclick=nextHand;
+$('shuffle').onclick=()=>{if(confirm('Reset the count for a fresh shuffle?')){state=fresh();render()}};
+
+// ---------- voice / text entry ----------
+const TARGETS={dealer:'dealer',dealers:'dealer',d:'dealer',me:'me',my:'me',mine:'me',i:'me',m:'me',
+  table:'table',t:'table',player:'table',players:'table',friend:'table',friends:'table',others:'table',other:'table'};
+const CMDS={split:'split',done:'done',stand:'done',next:'next',undo:'undo',oops:'undo'};
+const WORDS={ace:'A',aces:'A',two:'2',twos:'2',three:'3',threes:'3',four:'4',fours:'4',
+  five:'5',fives:'5',six:'6',sixes:'6',seven:'7',sevens:'7',eight:'8',eights:'8',nine:'9',nines:'9',
+  ten:'10',tens:'10',king:'10',kings:'10',queen:'10',queens:'10',jack:'10',jacks:'10',face:'10',k:'10',q:'10',j:'10'};
+// Words that sound like numbers ("for", "to") are NOT treated as cards: a phantom card would silently wreck the count.
+const FILLER=new Set(['and','the','an','got','gets','get','has','have','card','cards','hand','then','with','plus',
+  'of','is','was','shows','showing','show','up','upcard','hit','hits','dealt','new','round']);
+function runOfCards(run){const out=[];let i=0;
+  while(i<run.length){
+    if(run.startsWith('10',i)){out.push('10');i+=2;continue}
+    const ch=run[i++];
+    if(ch>='2'&&ch<='9')out.push(ch);else if(ch==='a')out.push('A');
+    else if('kqj'.includes(ch))out.push('10');else return null;} // a lone "1" (as in 15 or 16) is ambiguous: reject
+  return out}
+function parseCards(text){
+  const acts=[],bad=[];
+  const raw=text.replace(/['\u2019]s\b/gi,'').replace(/[,.!?;:\-\u2013\u2014]/g,' ').split(/\s+/).filter(Boolean);
+  for(let i=0;i<raw.length;i++){
+    let w=raw[i].toLowerCase();
+    if(/^0\d$/.test(w))w=w.slice(1); // speech can turn "8 8" into "8:08"
+    if(w==='next'&&/^(hand|round)$/i.test(raw[i+1]||''))i++;
+    if(w==='a'){if(raw[i]==='A')acts.push({k:'c',v:'A'});continue} // capital "A" = ace, lowercase "a" = article
+    if(TARGETS[w]&&w.length>1){acts.push({k:'t',v:TARGETS[w]});continue}
+    if(CMDS[w]){acts.push({k:'cmd',v:CMDS[w]});continue}
+    if(WORDS[w]){acts.push({k:'c',v:WORDS[w]});continue}
+    if(FILLER.has(w))continue;
+    const m=w.match(/^(dealer|me|table|d|m|t)?([0-9kqja]+)$/);
+    if(m){const cards=runOfCards(m[2]);
+      if(cards&&(m[1]||/\d/.test(m[2]))){if(m[1])acts.push({k:'t',v:TARGETS[m[1]]});cards.forEach(v=>acts.push({k:'c',v}));continue}}
+    if(TARGETS[w]){acts.push({k:'t',v:TARGETS[w]});continue} // single letters d/m/t on their own
+    bad.push(raw[i]);
+  }
+  return{acts,bad}}
+const NICE={dealer:'Dealer',me:'Me',table:'Table'};
+const esc=x=>String(x).replace(/[<>&"]/g,'');
+function runText(text){
+  const{acts,bad}=parseCards(text);if(!acts.length&&!bad.length)return;
+  const parts=[],fails=[];let lastT=null,dropped=[];
+  for(const a of acts){
+    if(a.k==='t'){state.target=a.v;render();lastT=null;continue}
+    if(a.k==='cmd'){
+      const ok=({split:doSplit,done:doDone,next:nextHand,undo:undo})[a.v]();
+      if(ok===false)fails.push(a.v==='split'?'couldn\u2019t split (not a pair)':'no hand to finish');else parts.push(a.v[0].toUpperCase()+a.v.slice(1));
+      lastT=null;continue}
+    let r=a.v;const t=state.target;
+    if(t==='table'&&$('quick').checked)r=hilo(a.v)>0?'L':hilo(a.v)<0?'X':'M';
+    if(!add(r,true)){dropped.push(a.v);continue}
+    if(lastT!==t){parts.push(NICE[t]+' '+a.v);lastT=t}else parts[parts.length-1]+=', '+a.v;
+  }
+  if(dropped.length)fails.push(`not added: ${dropped.join(', ')} (your hands are finished; say \u201ctable\u201d or \u201cdealer\u201d first)`);
+  if(bad.some(b=>/^1[1-9]$/.test(b)))fails.push('say each card separately, like \u201c10 6\u201d instead of \u201c16\u201d');
+  $('heard').innerHTML=(parts.length?'Added: '+parts.join('. ')+'.':(fails.length?'':'Nothing added.'))+
+    (bad.length?` <span class="bad">Skipped: ${bad.map(esc).join(', ')}.</span>`:'')+
+    (fails.length?` <span class="bad">${fails.map(f=>f[0].toUpperCase()+f.slice(1)).join('. ')}.</span>`:'');
+}
+$('sayGo').onclick=()=>{runText($('sayBox').value);$('sayBox').value=''};
+$('sayBox').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('sayGo').click()}});
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(SR){const mic=$('micBtn');mic.hidden=false;let rec=null;
+  mic.onclick=()=>{
+    if(rec){rec.stop();return}
+    rec=new SR();rec.lang='en-US';rec.interimResults=false;rec.continuous=false;let got=false,err=false;
+    rec.onresult=e=>{got=true;const said=e.results[0][0].transcript;$('sayBox').value='';runText(said);$('heard').innerHTML=`Heard “${esc(said)}”. `+$('heard').innerHTML};
+    rec.onerror=e=>{err=true;$('heard').innerHTML=`<span class="bad">${e.error==='not-allowed'||e.error==='service-not-allowed'?'Microphone is blocked here. Open the file in Safari, or tap the box and use your keyboard\u2019s mic.':'Didn\u2019t catch that. Try again.'}</span>`};
+    rec.onend=()=>{if(!got&&!err)$('heard').innerHTML='<span class="bad">Didn’t hear anything. Tap Listen and try again.</span>';rec=null;mic.classList.remove('on');mic.textContent='Listen'};
+    mic.classList.add('on');mic.textContent='Stop';rec.start();
+  }}
+
+document.querySelectorAll('details input,details select').forEach(el=>el.addEventListener('change',()=>render()));
+render();
+</script>
+</body>
+</html>
